@@ -1,55 +1,9 @@
 #!/usr/bin/env python
-# PYTHON_PREAMBLE_START_STANDARD:{{{
-
-# Christopher David Cotton (c)
-# http://www.cdcotton.com
-
-# modules needed for preamble
-import importlib
 import os
 from pathlib import Path
 import sys
 
-# Get full real filename
-__fullrealfile__ = os.path.abspath(__file__)
-
-# Function to get git directory containing this file
-def getprojectdir(filename):
-    curlevel = filename
-    while curlevel is not '/':
-        curlevel = os.path.dirname(curlevel)
-        if os.path.exists(curlevel + '/.git/'):
-            return(curlevel + '/')
-    return(None)
-
-# Directory of project
-__projectdir__ = Path(getprojectdir(__fullrealfile__))
-
-# Function to call functions from files by their absolute path.
-# Imports modules if they've not already been imported
-# First argument is filename, second is function name, third is dictionary containing loaded modules.
-modulesdict = {}
-def importattr(modulefilename, func, modulesdict = modulesdict):
-    # get modulefilename as string to prevent problems in <= python3.5 with pathlib -> os
-    modulefilename = str(modulefilename)
-    # if function in this file
-    if modulefilename == __fullrealfile__:
-        return(eval(func))
-    else:
-        # add file to moduledict if not there already
-        if modulefilename not in modulesdict:
-            # check filename exists
-            if not os.path.isfile(modulefilename):
-                raise Exception('Module not exists: ' + modulefilename + '. Function: ' + func + '. Filename called from: ' + __fullrealfile__ + '.')
-            # add directory to path
-            sys.path.append(os.path.dirname(modulefilename))
-            # actually add module to moduledict
-            modulesdict[modulefilename] = importlib.import_module(''.join(os.path.basename(modulefilename).split('.')[: -1]))
-
-        # get the actual function from the file and return it
-        return(getattr(modulesdict[modulefilename], func))
-
-# PYTHON_PREAMBLE_END:}}}
+__projectdir__ = Path(os.path.dirname(os.path.realpath(__file__)) + '/')
 
 # OLD:{{{1
 def genpopup(text, textiscommand = False, title = None, testcommand = None, testcommandonlynewfile = None, appendpid = True):
@@ -143,7 +97,7 @@ def genpopup_ap():
     args=parser.parse_args()
     #End argparse:}}}
     
-    pid = importattr(__projectdir__ / Path('displaypopup_func.py'), 'genpopup')(args.text, textiscommand = args.textiscommand, title = args.title, testcommand = args.testcommand)
+    pid = genpopup(args.text, textiscommand = args.textiscommand, title = args.title, testcommand = args.testcommand)
 
 # Generate popups:{{{1
 def genpopup_basic(message, title = None, appendpid = True):
@@ -263,7 +217,7 @@ def genpopup_test(message, title = None, test = None, combined = False, pythonin
         testoutputboolean = False
 
     if testoutputboolean is True:
-        importattr(__projectdir__ / Path('displaypopup_func.py'), 'genpopup_basic')(message, title = title, appendpid = appendpid)
+        genpopup_basic(message, title = title, appendpid = appendpid)
 
 
 # Move popups to current screen:{{{1
@@ -285,7 +239,7 @@ def check_pid(pid):
 
 def movezenitycurrentworkspace():
     """
-    Move zenity popups created by importattr(__projectdir__ / Path('displaypopup_func.py'), 'genpopup') to the current workspace.
+    Move zenity popups created by genpopup to the current workspace.
     This is necessary since otherwise the popups will just appear on the workspace on which the script generating the popups was run.
     """
     import subprocess
@@ -296,11 +250,13 @@ def movezenitycurrentworkspace():
     with open('/tmp/linux-popupinfo/popups.txt', encoding = 'latin-1') as f:
         pidlist = [int(pid) for pid in f.read().splitlines()]
 
-    currentworkspace = importattr(__projectdir__ / Path('submodules/linux-winfunc/winfunc.py'), 'getcurdesktop')()
+    sys.path.append(str(__projectdir__ / Path('submodules/linux-winfunc/')))
+    from winfunc import getcurdesktop
+    currentworkspace = getcurdesktop()
 
     newpidlist = []
     for pid in pidlist:
-        if importattr(__projectdir__ / Path('displaypopup_func.py'), 'check_pid')(pid) is True:
+        if check_pid(pid) is True:
             newpidlist.append(pid)
 
     with open('/tmp/linux-popupinfo/popups.txt', 'w+') as f:
@@ -309,7 +265,9 @@ def movezenitycurrentworkspace():
     if len(newpidlist) > 0:
         pid = newpidlist[0]
 
-        visualpid = importattr(__projectdir__ / Path('submodules/linux-winfunc/winfunc.py'), 'visualpidfrompid')(pid)
+        sys.path.append(str(__projectdir__ / Path('submodules/linux-winfunc/')))
+        from winfunc import visualpidfrompid
+        visualpid = visualpidfrompid(pid)
 
         output = subprocess.check_output(['wmctrl', '-l'])
         output = output.decode('latin-1').splitlines()
@@ -318,7 +276,9 @@ def movezenitycurrentworkspace():
             if linesplit[0] == visualpid:
                 workspace = linesplit[1]
 
-        importattr(__projectdir__ / Path('submodules/linux-winfunc/winfunc.py'), 'changedesktop')(workspace)
+        sys.path.append(str(__projectdir__ / Path('submodules/linux-winfunc/')))
+        from winfunc import changedesktop
+        changedesktop(workspace)
                 
 
             
@@ -332,6 +292,6 @@ def movezenitycurrentworkspace_while():
     """
     import time
     while True:
-        importattr(__projectdir__ / Path('displaypopup_func.py'), 'movezenitycurrentworkspace')()
+        movezenitycurrentworkspace()
 
         time.sleep(10)
